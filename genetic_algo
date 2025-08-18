@@ -1,0 +1,86 @@
+import random
+
+# Items: (weight, value)
+items = [
+    (2, 6),   # Item1
+    (5, 10),  # Item2
+    (10, 18), # Item3
+    (8, 12),  # Item4
+    (3, 7),   # Item5
+    (7, 14)   # Item6
+]
+capacity = 15
+
+# Parameters
+POP_SIZE = 6
+GENS = 20
+CROSS_RATE = 0.8
+MUT_RATE = 0.1
+
+# Generate initial population
+def init_population():
+    return [[random.randint(0, 1) for _ in range(len(items))] for _ in range(POP_SIZE)]
+
+# Fitness function
+def fitness(chromosome):
+    total_weight, total_value = 0, 0
+    for gene, (w, v) in zip(chromosome, items):
+        if gene == 1:
+            total_weight += w
+            total_value += v
+    return total_value if total_weight <= capacity else 0
+
+# Roulette Wheel Selection
+def selection(pop, fits):
+    total_fit = sum(fits)
+    if total_fit == 0:
+        return random.choice(pop)
+    pick = random.uniform(0, total_fit)
+    current = 0
+    for chromosome, fit in zip(pop, fits):
+        current += fit
+        if current > pick:
+            return chromosome
+
+# Crossover (single point)
+def crossover(p1, p2):
+    if random.random() < CROSS_RATE:
+        point = random.randint(1, len(p1)-1)
+        return p1[:point] + p2[point:], p2[:point] + p1[point:]
+    return p1, p2
+
+# Mutation (bit flip)
+def mutate(chromosome):
+    return [1-g if random.random() < MUT_RATE else g for g in chromosome]
+
+# Run GA
+def genetic_algorithm():
+    population = init_population()
+
+    for gen in range(GENS):
+        fits = [fitness(ch) for ch in population]
+        new_pop = []
+
+        for _ in range(POP_SIZE // 2):
+            p1, p2 = selection(population, fits), selection(population, fits)
+            c1, c2 = crossover(p1, p2)
+            new_pop.extend([mutate(c1), mutate(c2)])
+
+        population = new_pop
+        best_fit = max(fits)
+        best_ch = population[fits.index(best_fit)]
+        print(f"Gen {gen+1}: Best fitness = {best_fit}, Chromosome = {best_ch}")
+
+    # Final best
+    final_fits = [fitness(ch) for ch in population]
+    best_fit = max(final_fits)
+    best_ch = population[final_fits.index(best_fit)]
+    print("\nBest Solution:")
+    print("Chromosome:", best_ch)
+    print("Fitness (Value):", best_fit)
+    print("Weight:", sum(w for g,(w,_) in zip(best_ch, items) if g==1))
+    print("Items:", [i+1 for i,g in enumerate(best_ch) if g==1])
+
+# Run
+if __name__ == "__main__":
+    genetic_algorithm()
