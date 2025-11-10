@@ -1,0 +1,94 @@
+import random
+import math
+import numpy as np
+
+
+data = np.array([
+    [0.8, 1.0, 250],
+    [0.3, 0.8, 300],
+    [1.2, 1.5, 200],
+    [0.5, 0.6, 150],
+    [1.0, 0.9, 180],
+    [0.6, 1.2, 220]
+])
+targets = np.array([70, 55, 90, 40, 75, 60])
+
+FUNCTIONS = ['+', '-', '*', '/']
+TERMINALS = ['x1', 'x2', 'x3']
+POP_SIZE = 20
+MAX_DEPTH = 3
+GENERATIONS = 30
+MUTATION_RATE = 0.2
+CROSSOVER_RATE = 0.6
+
+def random_expr(depth=0):
+    if depth >= MAX_DEPTH:
+        # choose variable or constant
+        if random.random() < 0.5:
+            return random.choice(TERMINALS)
+        else:
+            return str(round(random.uniform(0.1, 2.0), 2))
+    func = random.choice(FUNCTIONS)
+    left = random_expr(depth + 1)
+    right = random_expr(depth + 1)
+    return f"({left} {func} {right})"
+
+def evaluate(expr, x):
+    x1, x2, x3 = x
+    try:
+        val = eval(expr)
+        if math.isnan(val) or math.isinf(val):
+            return 0
+        return val
+    except Exception:
+        return 0
+
+def fitness(expr):
+    preds = np.array([evaluate(expr, row) for row in data])
+    return np.mean((preds - targets) ** 2)
+
+def crossover(expr1, expr2):
+    if random.random() > CROSSOVER_RATE:
+        return expr1
+    # random crossover point
+    tokens1 = expr1.split()
+    tokens2 = expr2.split()
+    if not tokens1 or not tokens2:
+        return expr1
+    i, j = random.randint(0, len(tokens1)-1), random.randint(0, len(tokens2)-1)
+    tokens1[i] = tokens2[j]
+    return ' '.join(tokens1)
+
+def mutate(expr):
+    if random.random() < MUTATION_RATE:
+        return random_expr()
+    return expr
+
+population = [random_expr() for _ in range(POP_SIZE)]
+
+for gen in range(GENERATIONS):
+    fitness_scores = [fitness(expr) for expr in population]
+    best_idx = np.argmin(fitness_scores)
+    best_expr = population[best_idx]
+    print(f"Generation {gen+1:02d} | Best MSE: {fitness_scores[best_idx]:.3f} | Expr: {best_expr}")
+
+    inv_fit = [1/(f+1e-6) for f in fitness_scores]
+    selected = random.choices(population, weights=inv_fit, k=POP_SIZE)
+
+    new_pop = []
+    for i in range(0, POP_SIZE, 2):
+        p1, p2 = selected[i], selected[(i+1) % POP_SIZE]
+        child = crossover(p1, p2)
+        child = mutate(child)
+        new_pop.append(child)
+
+    population = new_pop
+
+final_best = min(population, key=fitness)
+print("\n Best evolved expression (predictive model):")
+print(final_best)
+
+
+for i, sample in enumerate(data):
+    pred = evaluate(final_best, sample)
+    print(f"Sample {i+1}: Predicted = {pred:.2f} | Actual = {targets[i]}")
